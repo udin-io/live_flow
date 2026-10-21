@@ -98,4 +98,40 @@ defmodule LiveFlow.Components.FlowEventsTest do
       end
     end
   end
+
+  describe "lf:node_change" do
+    for kind <- ["add", "replace"] do
+      test "#{kind} with an unknown node type draws a default node and makes no atom" do
+        {view, canvas} = mount_canvas()
+        type = "lf_type_#{System.unique_integer([:positive])}"
+
+        Process.flag(:trap_exit, true)
+
+        change = %{
+          "type" => unquote(kind),
+          "node" => %{"id" => "b", "type" => type, "position" => %{"x" => 50, "y" => 50}}
+        }
+
+        try do
+          render_hook(canvas, "lf:node_change", %{"changes" => [change]})
+        catch
+          :exit, _ -> flunk("the page crashed on an unknown node type")
+        end
+
+        assert has_element?(view, "[data-node-id='b']")
+        assert_raise ArgumentError, fn -> String.to_existing_atom(type) end
+      end
+    end
+
+    test "keeps a node type an Elixir caller passes as an atom" do
+      change = %{
+        "type" => "add",
+        "node" => %{"id" => "b", "type" => :status, "position" => %{"x" => 0, "y" => 0}}
+      }
+
+      flow = LiveFlow.Changes.NodeChange.apply_changes(LiveFlow.State.new(), [change])
+
+      assert flow.nodes["b"].type == :status
+    end
+  end
 end
