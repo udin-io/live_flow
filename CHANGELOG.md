@@ -5,6 +5,7 @@
 ### Fixes
 
 - **`lf:connect_start` no longer makes atoms from client input.** The side a connection drag starts from is mapped to `:top`, `:right`, `:bottom` or `:left`, and anything else draws as `:right`. Before, each new value became an atom and then crashed the page while it drew the line; a client that kept sending new values filled the atom table, which stops the whole node.
+- **`lf:connect_start` draws coordinates that are not numbers from 0.** Before, a string or map in `from_x`, `from_y`, `to_x` or `to_y` crashed the page while it drew the line.
 - **A node added or replaced from the client with an unknown type draws as a default node.** Before, `lf:node_change` crashed the page on any type that was not already an atom.
 - **Function-component nodes redraw when their node changes.** A node type given as a function component was rendered with an empty change map, so LiveView treated every assign as unchanged and never sent the new content: a label or status updated on the server stayed stale in the browser. Such nodes now render the way `<.component>` calls do.
 - **Edge endpoints respect `handle.style` offsets.** When a handle's inline `style` map carries a `left` or `top` percentage (used to spread multiple handles along a side), SVG edges now start/end at that visual position instead of the side's centre. Previously an edge drawn from a handle positioned via `style: %{"left" => "25%"}` would still depart from the node's horizontal centre, leaving a visible gap between the edge line and the handle circle.

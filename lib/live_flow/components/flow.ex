@@ -257,10 +257,10 @@ defmodule LiveFlow.Components.Flow do
       node_id: params["node_id"],
       handle_id: params["handle_id"],
       handle_type: params["handle_type"],
-      from_x: params["from_x"] || 0,
-      from_y: params["from_y"] || 0,
-      to_x: params["to_x"] || 0,
-      to_y: params["to_y"] || 0,
+      from_x: coordinate(params["from_x"]),
+      from_y: coordinate(params["from_y"]),
+      to_x: coordinate(params["to_x"]),
+      to_y: coordinate(params["to_y"]),
       from_position: handle_position(params["from_position"])
     }
 
@@ -547,4 +547,8 @@ defmodule LiveFlow.Components.Flow do
   defp handle_position("bottom"), do: :bottom
   defp handle_position("left"), do: :left
   defp handle_position(_), do: :right
+
+  # The path math needs numbers; anything else the client sends draws from 0.
+  defp coordinate(value) when is_number(value), do: value
+  defp coordinate(_value), do: 0
 end

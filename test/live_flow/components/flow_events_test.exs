@@ -99,6 +99,30 @@ defmodule LiveFlow.Components.FlowEventsTest do
     end
   end
 
+  describe "lf:connect_start coordinates" do
+    test "draws a line from 0 for coordinates that are not numbers instead of crashing" do
+      Process.flag(:trap_exit, true)
+      {view, canvas} = mount_canvas()
+
+      render_hook(canvas, "lf:connect_start", %{"from_position" => "right"})
+      [zero] = connection_line(view)
+
+      try do
+        render_hook(canvas, "lf:connect_start", %{
+          "from_x" => "abc",
+          "from_y" => %{"a" => 1},
+          "to_x" => [1],
+          "to_y" => true,
+          "from_position" => "right"
+        })
+      catch
+        :exit, _ -> flunk("the page crashed on coordinates that are not numbers")
+      end
+
+      assert connection_line(view) == [zero]
+    end
+  end
+
   describe "lf:node_change" do
     for kind <- ["add", "replace"] do
       test "#{kind} with an unknown node type draws a default node and makes no atom" do
