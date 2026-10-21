@@ -257,11 +257,11 @@ defmodule LiveFlow.Components.Flow do
       node_id: params["node_id"],
       handle_id: params["handle_id"],
       handle_type: params["handle_type"],
-      from_x: params["from_x"] || 0,
-      from_y: params["from_y"] || 0,
-      to_x: params["to_x"] || 0,
-      to_y: params["to_y"] || 0,
-      from_position: String.to_atom(params["from_position"] || "right")
+      from_x: coordinate(params["from_x"]),
+      from_y: coordinate(params["from_y"]),
+      to_x: coordinate(params["to_x"]),
+      to_y: coordinate(params["to_y"]),
+      from_position: handle_position(params["from_position"])
     }
 
     {:noreply, assign(socket, connecting: connecting)}
@@ -539,4 +539,16 @@ defmodule LiveFlow.Components.Flow do
   defp notify_callback(nil, _data), do: :ok
   defp notify_callback(callback, data) when is_function(callback, 1), do: callback.(data)
   defp notify_callback(_callback, _data), do: :ok
+
+  # The browser sends the side a drag starts from. Map only the four sides a
+  # handle can sit on: an atom made from client text is never freed, so a
+  # client sending new values would fill the atom table and stop the node.
+  defp handle_position("top"), do: :top
+  defp handle_position("bottom"), do: :bottom
+  defp handle_position("left"), do: :left
+  defp handle_position(_), do: :right
+
+  # The path math needs numbers; anything else the client sends draws from 0.
+  defp coordinate(value) when is_number(value), do: value
+  defp coordinate(_value), do: 0
 end
