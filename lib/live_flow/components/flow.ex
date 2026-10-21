@@ -261,7 +261,7 @@ defmodule LiveFlow.Components.Flow do
       from_y: params["from_y"] || 0,
       to_x: params["to_x"] || 0,
       to_y: params["to_y"] || 0,
-      from_position: String.to_atom(params["from_position"] || "right")
+      from_position: handle_position(params["from_position"])
     }
 
     {:noreply, assign(socket, connecting: connecting)}
@@ -539,4 +539,12 @@ defmodule LiveFlow.Components.Flow do
   defp notify_callback(nil, _data), do: :ok
   defp notify_callback(callback, data) when is_function(callback, 1), do: callback.(data)
   defp notify_callback(_callback, _data), do: :ok
+
+  # The browser sends the side a drag starts from. Map only the four sides a
+  # handle can sit on: an atom made from client text is never freed, so a
+  # client sending new values would fill the atom table and stop the node.
+  defp handle_position("top"), do: :top
+  defp handle_position("bottom"), do: :bottom
+  defp handle_position("left"), do: :left
+  defp handle_position(_), do: :right
 end
