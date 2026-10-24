@@ -67,9 +67,9 @@ defmodule LiveFlow.Components.NodeWrapper do
       data-node-id={@node.id}
       data-node-type={@node.type}
       data-selected={@node.selected}
-      data-draggable={@node.draggable}
-      data-connectable={@node.connectable}
-      data-selectable={@node.selectable}
+      data-draggable={switch(@node.draggable)}
+      data-connectable={switch(@node.connectable)}
+      data-selectable={switch(@node.selectable)}
       data-dragging={@node.dragging}
       style={@style}
       phx-click="lf:node_click"
@@ -171,6 +171,11 @@ defmodule LiveFlow.Components.NodeWrapper do
        do: %{node: old_node}
 
   defp node_changed(_assigns), do: nil
+
+  # The hook reads these switches as on unless the attribute says "false".
+  # HEEx drops an attribute whose value is false, so name both states.
+  defp switch(false), do: "false"
+  defp switch(_on), do: "true"
 
   defp node_style(%Node{position: pos, z_index: z, style: custom_style, dragging: dragging}) do
     base_style = [
