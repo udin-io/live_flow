@@ -7,6 +7,7 @@
   "module": "./assets/js/live_flow/index.js",
   "exports": {
     ".": "./assets/js/live_flow/index.js",
+    "./core": "./assets/js/live_flow/core.js",
     "./css/live_flow.css": "./assets/css/live_flow.css",
     "./liveflow-theme": "./assets/js/live_flow/liveflow-theme.js"
   },
