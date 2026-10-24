@@ -145,14 +145,14 @@ defmodule LiveFlow.Components.Flow do
       data-cursors={@opts[:cursors]}
       data-min-zoom={@opts.min_zoom}
       data-max-zoom={@opts.max_zoom}
-      data-pan-on-drag={@opts.pan_on_drag}
-      data-zoom-on-scroll={@opts.zoom_on_scroll}
+      data-pan-on-drag={switch(@opts.pan_on_drag)}
+      data-zoom-on-scroll={switch(@opts.zoom_on_scroll)}
       data-snap-to-grid={@opts.snap_to_grid}
       data-snap-grid-x={@snap_grid_x}
       data-snap-grid-y={@snap_grid_y}
-      data-nodes-draggable={@opts.nodes_draggable}
-      data-nodes-connectable={@opts.nodes_connectable}
-      data-elements-selectable={@opts.elements_selectable}
+      data-nodes-draggable={switch(@opts.nodes_draggable)}
+      data-nodes-connectable={switch(@opts.nodes_connectable)}
+      data-elements-selectable={switch(@opts.elements_selectable)}
       data-fit-view-on-init={@opts.fit_view_on_init}
       data-helper-lines={@opts.helper_lines}
     >
@@ -514,6 +514,11 @@ defmodule LiveFlow.Components.Flow do
   end
 
   # Private helpers
+
+  # The hook reads these switches as on unless the attribute says "false".
+  # HEEx drops an attribute whose value is false, so name both states.
+  defp switch(false), do: "false"
+  defp switch(_on), do: "true"
 
   defp sort_nodes(nodes, selected_nodes) do
     nodes

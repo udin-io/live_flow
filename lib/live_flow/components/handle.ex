@@ -46,7 +46,7 @@ defmodule LiveFlow.Components.Handle do
       data-handle-id={@handle_id}
       data-handle-type={@type}
       data-handle-position={@position}
-      data-handle-connectable={@connectable}
+      data-handle-connectable={if @connectable == false, do: "false", else: "true"}
       data-handle-connect-type={Map.get(@handle, :connect_type)}
       data-node-id={@node_id}
       style={handle_style(@handle)}
