@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.2.4 (2026-11-07)
+
+### Dependencies
+
+- **The lock moves phoenix to 1.8.16, phoenix_live_view to 1.2.13, phoenix_html to 4.4.0, plug to 1.20.3 and plug_crypto to 2.2.1.** They fix 10 advisories, among them EEF-CVE-2026-56811 and EEF-CVE-2026-32689 in phoenix, EEF-CVE-2026-54892 and EEF-CVE-2026-8468 in plug, and EEF-CVE-2026-117645 in phoenix_html. The version ranges in `mix.exs` do not change, so an app's own lock decides which versions it gets: move those packages there.
 
 ### Fixes
 
