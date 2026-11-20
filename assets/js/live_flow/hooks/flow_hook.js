@@ -1484,11 +1484,11 @@ export const LiveFlowHook = {
   // ===== Remote Drag Interpolation =====
 
   onRemoteDrag(data) {
-    if (!data.changes) return;
+    if (!data.changes || !this.config.nodesDraggable) return;
     for (const change of data.changes) {
       if (!change.position) continue;
       const el = this.nodeEl(change.id);
-      if (!el) continue;
+      if (!el || el.dataset.draggable === 'false') continue;
 
       const entry = this._remoteDragTargets.get(change.id);
       if (entry) {

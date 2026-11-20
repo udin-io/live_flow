@@ -426,14 +426,8 @@ defmodule MyAppWeb.CollabFlowLive do
   end
 
   @impl true
-  def handle_event("lf:selection_change", %{"nodes" => nodes, "edges" => edges}, socket) do
-    flow =
-      socket.assigns.flow
-      |> State.clear_selection()
-      |> State.select_nodes(nodes)
-
-    flow = Enum.reduce(edges, flow, &State.select_edge(&2, &1, multi: true))
-    {:noreply, assign(socket, flow: flow)}
+  def handle_event("lf:selection_change", params, socket) do
+    {:noreply, assign(socket, flow: State.apply_selection_change(socket.assigns.flow, params))}
   end
 
   @impl true

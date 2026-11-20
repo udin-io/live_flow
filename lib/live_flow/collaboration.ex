@@ -41,6 +41,8 @@ defmodule LiveFlow.Collaboration do
         end
 
         def handle_event("lf:node_change", %{"changes" => changes}, socket) do
+          # Keep only what this flow allows before you apply or share it
+          changes = NodeChange.allowed_changes(socket.assigns.flow, changes)
           flow = apply_node_changes(socket.assigns.flow, changes)
           socket = Collaboration.broadcast_change(socket, {:node_changes, changes})
           {:noreply, assign(socket, flow: flow)}

@@ -56,7 +56,13 @@ defmodule LiveFlow.XyflowParityTest do
       state =
         State.new(
           nodes: [node("a", 0, 0), node("b", 100, 0), node("c", 200, 0)],
-          edges: [Edge.new("e1", "a", "b", source_handle: "out", target_handle: "in")]
+          edges: [
+            Edge.new("e1", "a", "b",
+              source_handle: "out",
+              target_handle: "in",
+              reconnectable: true
+            )
+          ]
         )
 
       %{state: state}

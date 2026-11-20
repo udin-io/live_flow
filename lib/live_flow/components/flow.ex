@@ -65,7 +65,16 @@ defmodule LiveFlow.Components.Flow do
 
   ### Nodes & edges
 
-    * `:nodes_draggable` / `:nodes_connectable` / `:elements_selectable` (default: `true`)
+    * `:nodes_draggable` / `:nodes_connectable` / `:elements_selectable` (default: `true`).
+      These stop the browser only. When your LiveView handles the flow's
+      events itself, pass the same options to the server:
+      `LiveFlow.Changes.NodeChange.apply_changes/3`,
+      `LiveFlow.Changes.EdgeChange.apply_changes/3`,
+      `LiveFlow.Validation.Connection.validate_and_create/3`,
+      `LiveFlow.State.reconnect_edge/3` and
+      `LiveFlow.State.apply_selection_change/3`. These functions also keep each
+      element's own `draggable`, `connectable`, `selectable` and `deletable`
+      fields, whatever the browser sends.
     * `:node_drag_threshold` - Pixels the pointer must move before a drag starts (default: `1`)
     * `:node_extent` - Constrain node drag/resize to `{{min_x, min_y}, {max_x, max_y}}` (default: `nil`)
     * `:snap_to_grid` / `:snap_grid` - Snap positions to a grid (default: `false` / `{15, 15}`)
@@ -425,7 +434,9 @@ defmodule LiveFlow.Components.Flow do
 
   @impl true
   def handle_event("lf:node_change", %{"changes" => changes}, socket) do
-    flow = NodeChange.apply_changes(socket.assigns.flow, changes)
+    %{flow: flow, opts: opts} = socket.assigns
+    changes = NodeChange.allowed_changes(flow, changes, opts)
+    flow = Enum.reduce(changes, flow, &NodeChange.apply_change(&2, &1))
 
     notify_callback(socket.assigns.on_nodes_change, changes)
 
@@ -434,7 +445,9 @@ defmodule LiveFlow.Components.Flow do
 
   @impl true
   def handle_event("lf:edge_change", %{"changes" => changes}, socket) do
-    flow = EdgeChange.apply_changes(socket.assigns.flow, changes)
+    %{flow: flow, opts: opts} = socket.assigns
+    changes = EdgeChange.allowed_changes(flow, changes, opts)
+    flow = Enum.reduce(changes, flow, &EdgeChange.apply_change(&2, &1))
 
     notify_callback(socket.assigns.on_edges_change, changes)
 
@@ -449,19 +462,16 @@ defmodule LiveFlow.Components.Flow do
   end
 
   @impl true
-  def handle_event("lf:selection_change", %{"nodes" => node_ids, "edges" => edge_ids}, socket) do
-    flow =
-      socket.assigns.flow
-      |> State.select_nodes(node_ids)
+  def handle_event("lf:selection_change", %{} = params, socket) do
+    %{flow: flow, opts: opts} = socket.assigns
+    new_flow = State.apply_selection_change(flow, params, opts)
 
-    flow =
-      Enum.reduce(edge_ids, flow, fn id, acc ->
-        State.select_edge(acc, id, multi: true)
-      end)
+    notify_callback(socket.assigns.on_selection_change, %{
+      nodes: MapSet.to_list(new_flow.selected_nodes),
+      edges: MapSet.to_list(new_flow.selected_edges)
+    })
 
-    notify_callback(socket.assigns.on_selection_change, %{nodes: node_ids, edges: edge_ids})
-
-    {:noreply, assign(socket, flow: flow)}
+    {:noreply, assign(socket, flow: new_flow)}
   end
 
   @impl true

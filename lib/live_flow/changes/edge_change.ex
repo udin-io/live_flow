@@ -21,7 +21,8 @@ defmodule LiveFlow.Changes.EdgeChange do
       %{"type" => "select", "id" => "e1", "selected" => true}
   """
 
-  alias LiveFlow.{State, Edge}
+  alias LiveFlow.{Edge, State}
+  alias LiveFlow.Changes.Guard
 
   @type add_change :: %{
           type: :add,
@@ -117,11 +118,82 @@ defmodule LiveFlow.Changes.EdgeChange do
   def apply_change(state, _unknown_change), do: state
 
   @doc """
-  Applies a list of changes to the state.
+  Applies a list of changes from the browser to the state.
+
+  The changes pass through `allowed_changes/3` first, so a change the browser
+  would never send for a locked edge or node is dropped. Use `apply_change/2`
+  for changes your own server code makes.
+
+  ## Options
+
+  Pass the flow's own read-only options (a keyword list or a map), the same
+  ones the Flow component gets:
+
+    * `:nodes_connectable` - `false` drops changes that add an edge or move
+      an edge's ends
+    * `:elements_selectable` - `false` drops changes that select an edge
   """
-  @spec apply_changes(State.t(), [map()]) :: State.t()
-  def apply_changes(state, changes) when is_list(changes) do
-    Enum.reduce(changes, state, &apply_change(&2, &1))
+  @spec apply_changes(State.t(), [map()], keyword() | map()) :: State.t()
+  def apply_changes(state, changes, opts \\ []) when is_list(changes) do
+    state
+    |> allowed_changes(changes, opts)
+    |> Enum.reduce(state, &apply_change(&2, &1))
+  end
+
+  @doc """
+  Returns the changes from the browser that the server lets through.
+
+    * an add, or a replace that moves an edge's ends, is dropped when
+      `nodes_connectable` is `false` or either end node has
+      `connectable: false`
+    * a replace or an add with the ID of an edge that has `selectable` or
+      `deletable` set to `false` is dropped
+    * `selectable: false` or `elements_selectable: false` - select changes
+      are dropped; deselecting still works
+    * `deletable: false` - remove changes are dropped
+  """
+  @spec allowed_changes(State.t(), [map()], keyword() | map()) :: [map()]
+  def allowed_changes(state, changes, opts \\ []) when is_list(changes) do
+    Enum.filter(changes, &allowed?(state, &1, opts))
+  end
+
+  defp allowed?(state, change, opts) do
+    edge = State.get_edge(state, Guard.field(change, "id"))
+
+    case Guard.type(change) do
+      "select" ->
+        not Guard.selects?(change) or
+          (Guard.enabled?(opts, :elements_selectable) and
+             not match?(%Edge{selectable: false}, edge))
+
+      "remove" ->
+        not match?(%Edge{deletable: false}, edge)
+
+      type when type in ["add", "replace"] ->
+        new = Guard.field(change, "edge")
+        stored = State.get_edge(state, Guard.field(new, "id"))
+
+        is_map(new) and not Guard.locked?(stored, [:selectable, :deletable]) and
+          (same_ends?(stored, new) or connectable?(state, new, opts))
+
+      _ ->
+        true
+    end
+  end
+
+  defp same_ends?(%Edge{source: source, target: target}, new),
+    do: Guard.field(new, "source") == source and Guard.field(new, "target") == target
+
+  defp same_ends?(nil, _new), do: false
+
+  defp connectable?(state, new, opts) do
+    Guard.enabled?(opts, :nodes_connectable) and
+      Enum.all?(["source", "target"], fn key ->
+        not match?(
+          %LiveFlow.Node{connectable: false},
+          State.get_node(state, Guard.field(new, key))
+        )
+      end)
   end
 
   @doc """

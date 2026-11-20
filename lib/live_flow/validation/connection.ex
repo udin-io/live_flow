@@ -35,11 +35,15 @@ defmodule LiveFlow.Validation.Connection do
   @doc """
   Validates connection params and creates an edge if valid.
 
-  Returns `{:ok, edge}` or `{:error, reason}`.
+  Returns `{:ok, edge}` or `{:error, reason}`. A connection from or to a
+  node with `connectable: false` is refused, whatever the validators.
 
   ## Options
 
     * `:validators` — list of validator functions (default: `Validation.preset(:default)`)
+    * `:nodes_connectable` — `false` refuses every connection; pass the
+      flow's own option so the server refuses what the browser hides.
+      Options may be a keyword list or a map.
     * `:edge_opts` — extra options passed to `Edge.new/4`
     * `:edge_id` — edge ID: a string, or a function receiving the connection
       (`%{source:, target:, source_handle:, target_handle:}`) and returning one.
@@ -51,9 +55,10 @@ defmodule LiveFlow.Validation.Connection do
         edge_id: fn conn -> "\#{conn.source}->\#{conn.target}" end
       )
   """
-  @spec validate_and_create(LiveFlow.State.t(), map(), keyword()) ::
+  @spec validate_and_create(LiveFlow.State.t(), map(), keyword() | map()) ::
           {:ok, Edge.t()} | {:error, String.t()}
   def validate_and_create(flow, params, opts \\ []) do
+    opts = LiveFlow.Changes.Guard.to_keyword(opts)
     validators = Keyword.get(opts, :validators, Validation.preset(:default))
     edge_opts = Keyword.get(opts, :edge_opts, [])
 
@@ -62,29 +67,47 @@ defmodule LiveFlow.Validation.Connection do
     source = conn_params.source
     target = conn_params.target
 
-    if source && target && source != target do
-      case Validation.validate(flow, conn_params, validators) do
-        :ok ->
-          edge_id = build_edge_id(Keyword.get(opts, :edge_id), conn_params)
+    cond do
+      opts[:nodes_connectable] == false ->
+        {:error, "Connections are turned off"}
 
-          edge =
-            Edge.new(
-              edge_id,
-              source,
-              target,
-              Keyword.merge(edge_opts,
-                source_handle: conn_params.source_handle,
-                target_handle: conn_params.target_handle
-              )
+      not (node_connectable?(flow, source) and node_connectable?(flow, target)) ->
+        {:error, "Node is not connectable"}
+
+      source && target && source != target ->
+        create_edge(flow, conn_params, validators, edge_opts, opts)
+
+      true ->
+        {:error, "Invalid source or target"}
+    end
+  end
+
+  defp node_connectable?(flow, id) do
+    not match?(%{connectable: false}, LiveFlow.State.get_node(flow, id))
+  end
+
+  defp create_edge(flow, conn_params, validators, edge_opts, opts) do
+    %{source: source, target: target} = conn_params
+
+    case Validation.validate(flow, conn_params, validators) do
+      :ok ->
+        edge_id = build_edge_id(Keyword.get(opts, :edge_id), conn_params)
+
+        edge =
+          Edge.new(
+            edge_id,
+            source,
+            target,
+            Keyword.merge(edge_opts,
+              source_handle: conn_params.source_handle,
+              target_handle: conn_params.target_handle
             )
+          )
 
-          {:ok, edge}
+        {:ok, edge}
 
-        {:error, _} = error ->
-          error
-      end
-    else
-      {:error, "Invalid source or target"}
+      {:error, _} = error ->
+        error
     end
   end
 

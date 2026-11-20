@@ -98,7 +98,7 @@ Other hooks can also use the JavaScript API on the container element
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `elements_selectable` | `true` | Global switch for selection |
+| `elements_selectable` | `true` | Global switch for selection. Pass it to the server too (see below) |
 | `selection_on_drag` | `false` | Dragging the pane draws a selection box (instead of panning) |
 | `selection_mode` | `:partial` | `:partial` selects nodes touched by the box, `:full` only nodes fully inside |
 | `selection_key` | `"Shift"` | Hold to draw a selection box |
@@ -146,7 +146,7 @@ move with it (see [Sub-flows](subflows.md)).
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `nodes_draggable` | `true` | Global switch for dragging (also for the arrow keys) |
+| `nodes_draggable` | `true` | Global switch for dragging (also for the arrow keys). Pass it to the server too (see below) |
 | `node_drag_threshold` | `1` | Pixels the pointer must move before a drag starts |
 | `snap_to_grid` / `snap_grid` | `false` / `{15, 15}` | Snap positions to a grid |
 | `helper_lines` | `false` | Show alignment guides and snap to them (within 5px) while dragging |
@@ -193,7 +193,7 @@ drawn in the browser; nothing reaches the server until the line is released
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `nodes_connectable` | `true` | Global switch for connections |
+| `nodes_connectable` | `true` | Global switch for connections. Pass it to the server too (see below) |
 | `connection_mode` | `:strict` | `:strict` only connects source to target handles, `:loose` also source to source |
 | `connection_radius` | `20` | Snap to the closest valid handle within this many pixels |
 | `connect_on_click` | `true` | Click a handle, then another one, to connect them (Escape or a pane click cancels) |
@@ -574,3 +574,29 @@ Touch input works without extra configuration:
 Modifier keys don't exist on touch screens, so adding to the selection by tapping
 and keyboard shortcuts are not available there; provide buttons (for example in a
 `:panel`) for actions such as delete, undo or copy.
+
+## Read-only flows on the server
+
+`nodes_draggable`, `nodes_connectable` and `elements_selectable` stop the
+browser only: anyone can still send the events by hand. When your LiveView
+handles the flow's events itself, pass the same options to the functions that
+apply them:
+
+```elixir
+@flow_opts %{nodes_draggable: false, nodes_connectable: false, elements_selectable: false}
+
+def handle_event("lf:node_change", %{"changes" => changes}, socket) do
+  {:noreply, update(socket, :flow, &NodeChange.apply_changes(&1, changes, @flow_opts))}
+end
+
+def handle_event("lf:selection_change", params, socket) do
+  {:noreply, update(socket, :flow, &State.apply_selection_change(&1, params, @flow_opts))}
+end
+```
+
+The same goes for `EdgeChange.apply_changes/3`,
+`Validation.Connection.validate_and_create/3` and `State.reconnect_edge/3`.
+Each of these also keeps a node's or edge's own `draggable`, `connectable`,
+`selectable` and `deletable` fields. Positions from a browser-side layout are
+position changes too, so lay out flows with locked nodes on the server with
+`LiveFlow.Layout`.

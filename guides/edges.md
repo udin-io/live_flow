@@ -45,7 +45,7 @@ Edge.new("e2", "a", "b",
 | `:reconnectable` | `false` | Adds grab handles at both ends (see [Reconnecting Edges](#reconnecting-edges)) |
 | `:source_floating` / `:target_floating` | `false` | Attach that end to the closest point of the node border instead of a handle |
 | `:data` | `%{}` | Your own data. LiveFlow also reads `:insertable` and `:label_renderer` from it |
-| `:selectable` | `true` | Stored and serialized, but the client does not check it for edges yet. Use the `elements_selectable: false` option to turn off selection for the whole flow |
+| `:selectable` | `true` | The client does not check it for edges yet; the server refuses to select the edge through `LiveFlow.Changes.EdgeChange.apply_changes/3` and `LiveFlow.State.apply_selection_change/3`. Use the `elements_selectable: false` option to turn off selection for the whole flow |
 | `:label_position` | `0.5` | Stored and serialized. The built-in renderer always puts the label at the label point of the path |
 
 `hidden` and `selected` are struct fields without a `new/4` option. Change them,

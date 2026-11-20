@@ -121,9 +121,12 @@ defmodule LiveFlow.State do
 
   @doc """
   Removes a node by ID, together with its child nodes (sub-flows) and every
-  edge connected to any of them.
+  edge connected to any of them. An unknown ID leaves the state as it is.
   """
   @spec remove_node(t(), String.t()) :: t()
+  def remove_node(%__MODULE__{nodes: nodes} = state, id) when not is_map_key(nodes, id),
+    do: state
+
   def remove_node(%__MODULE__{nodes: nodes, edges: edges} = state, id) do
     ids = MapSet.new([id | descendant_ids(state, id)])
 
@@ -460,6 +463,17 @@ defmodule LiveFlow.State do
     * `:replace_id` - Give the edge a new ID (default: `false`)
     * `:edge_id` - ID (or function receiving the updated edge) used when
       `:replace_id` is `true`. Defaults to a unique `"e-<integer>"` ID.
+    * `:nodes_connectable` - `false` leaves every edge as it is; pass the
+      flow's own option
+
+  The browser shows grab handles only on edges with `reconnectable: true`,
+  so the state stays as it is for any other edge, for a new end node with
+  `connectable: false` at either end, for an `"end"` other than `"source"` or `"target"`,
+  for an edge that would join a node to itself, and for an edge the
+  validators refuse. Options may be a keyword list or a map.
+
+    * `:validators` - the list `LiveFlow.Validation.Connection.validate_and_create/3`
+      takes (default: `LiveFlow.Validation.preset(:default)`)
 
   ## Examples
 
@@ -467,21 +481,22 @@ defmodule LiveFlow.State do
         {:noreply, assign(socket, flow: State.reconnect_edge(socket.assigns.flow, params))}
       end
   """
-  @spec reconnect_edge(t(), map(), keyword()) :: t()
+  @spec reconnect_edge(t(), map(), keyword() | map()) :: t()
   def reconnect_edge(%__MODULE__{edges: edges} = state, %{} = params, opts \\ []) do
+    opts = LiveFlow.Changes.Guard.to_keyword(opts)
     edge_id = params["edge_id"] || params[:edge_id]
     node_id = params["node_id"] || params[:node_id]
     handle_id = params["handle_id"] || params[:handle_id]
     end_ = to_string(params["end"] || params[:end])
 
-    with %Edge{} = edge <- Map.get(edges, edge_id),
-         true <- Map.has_key?(state.nodes, node_id) do
-      updated =
-        case end_ do
-          "source" -> %{edge | source: node_id, source_handle: handle_id}
-          "target" -> %{edge | target: node_id, target_handle: handle_id}
-        end
-
+    with true <- Keyword.get(opts, :nodes_connectable) != false,
+         %Edge{reconnectable: true} = edge <- Map.get(edges, edge_id),
+         %Node{} = node <- Map.get(state.nodes, node_id),
+         true <- node.connectable != false,
+         true <- fixed_end_connectable?(state, edge, end_),
+         true <- end_ in ["source", "target"],
+         updated = reconnected(edge, end_, node_id, handle_id),
+         :ok <- validate_reconnect(state, updated, opts) do
       if Keyword.get(opts, :replace_id, false) do
         new_id =
           LiveFlow.Validation.Connection.build_edge_id(Keyword.get(opts, :edge_id), updated)
@@ -495,6 +510,33 @@ defmodule LiveFlow.State do
     else
       _ -> state
     end
+  end
+
+  defp fixed_end_connectable?(state, edge, end_) do
+    fixed = if end_ == "source", do: edge.target, else: edge.source
+    not match?(%Node{connectable: false}, Map.get(state.nodes, fixed))
+  end
+
+  defp reconnected(edge, "source", node_id, handle_id),
+    do: %{edge | source: node_id, source_handle: handle_id}
+
+  defp reconnected(edge, "target", node_id, handle_id),
+    do: %{edge | target: node_id, target_handle: handle_id}
+
+  # The same checks a new connection gets, against the flow without this edge
+  defp validate_reconnect(_state, %Edge{source: same, target: same}, _opts), do: {:error, :loop}
+
+  defp validate_reconnect(state, %Edge{} = edge, opts) do
+    validators = Keyword.get(opts, :validators, LiveFlow.Validation.preset(:default))
+
+    params = %{
+      source: edge.source,
+      target: edge.target,
+      source_handle: edge.source_handle,
+      target_handle: edge.target_handle
+    }
+
+    state |> remove_edge(edge.id) |> LiveFlow.Validation.validate(params, validators)
   end
 
   @doc """
@@ -653,6 +695,44 @@ defmodule LiveFlow.State do
         selected_edges: MapSet.new()
     }
   end
+
+  @doc """
+  Applies an `lf:selection_change` event from the browser: the selection
+  becomes the given node and edge IDs.
+
+  Elements with `selectable: false` are left out, whatever the browser sends.
+  With the flow's `elements_selectable: false` option (a keyword list or a
+  map), the selection stays as it is. `select_nodes/2` and `select_edge/3`
+  stay unchecked, for selections the server makes itself.
+  """
+  @spec apply_selection_change(t(), map(), keyword() | map()) :: t()
+  def apply_selection_change(state, params, opts \\ [])
+
+  def apply_selection_change(%__MODULE__{} = state, %{} = params, opts) do
+    if not LiveFlow.Changes.Guard.enabled?(opts, :elements_selectable) do
+      state
+    else
+      node_ids = selectable_ids(state.nodes, Map.get(params, "nodes", []))
+      edge_ids = selectable_ids(state.edges, Map.get(params, "edges", []))
+
+      state
+      |> clear_selection()
+      |> select_nodes(node_ids)
+      |> then(&Enum.reduce(edge_ids, &1, fn id, acc -> select_edge(acc, id, multi: true) end))
+    end
+  end
+
+  defp selectable_ids(elements, ids) when is_list(ids) do
+    Enum.filter(ids, fn id ->
+      case Map.get(elements, id) do
+        %{selectable: false} -> false
+        nil -> false
+        _ -> true
+      end
+    end)
+  end
+
+  defp selectable_ids(_elements, _ids), do: []
 
   @doc """
   Selects all nodes and edges.

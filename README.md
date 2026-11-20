@@ -155,10 +155,8 @@ defmodule MyAppWeb.FlowLive do
   end
 
   # Selection
-  def handle_event("lf:selection_change", %{"nodes" => nodes, "edges" => edges}, socket) do
-    flow = socket.assigns.flow |> State.clear_selection() |> State.select_nodes(nodes)
-    flow = Enum.reduce(edges, flow, &State.select_edge(&2, &1, multi: true))
-    {:noreply, assign(socket, flow: flow)}
+  def handle_event("lf:selection_change", params, socket) do
+    {:noreply, assign(socket, flow: State.apply_selection_change(socket.assigns.flow, params))}
   end
 
   # Backspace/Delete with a selection (deletable: false elements are kept)
@@ -197,7 +195,7 @@ for the full reference):
 | `snap_to_grid` / `snap_grid` | boolean / `{x, y}` | `false` / `{15, 15}` | Snap positions (and resizing) to a grid |
 | `node_extent` | `{{x1, y1}, {x2, y2}}` | `nil` | Area nodes can't be dragged or resized out of |
 | `node_drag_threshold` | integer | `1` | Pixels before a drag starts |
-| `nodes_draggable` / `nodes_connectable` / `elements_selectable` | boolean | `true` | Global interaction switches |
+| `nodes_draggable` / `nodes_connectable` / `elements_selectable` | boolean | `true` | Global interaction switches. They stop the browser only: pass them to the server too, see [Read-only flows on the server](guides/interaction.md#read-only-flows-on-the-server) |
 | `selection_on_drag` | boolean | `false` | Dragging the pane draws a selection box |
 | `selection_mode` | `:partial` \| `:full` | `:partial` | Select nodes touched by / fully inside the box |
 | `selection_key` / `multi_selection_key` | key | `"Shift"` / `["Meta", "Control", "Shift"]` | Box selection / additive selection keys |

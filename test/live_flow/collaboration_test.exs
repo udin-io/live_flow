@@ -10,7 +10,7 @@ defmodule LiveFlow.CollaborationTest do
         Node.new("b", %{x: 200, y: 0}, %{label: "B"}),
         Node.new("c", %{x: 400, y: 0}, %{label: "C"})
       ],
-      edges: [Edge.new("a-b", "a", "b")]
+      edges: [Edge.new("a-b", "a", "b", reconnectable: true)]
     )
   end
 
