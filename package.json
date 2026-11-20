@@ -21,5 +21,11 @@
     "package.json",
     "assets/js/**",
     "assets/css/**"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test test/js/"
+  },
+  "devDependencies": {
+    "happy-dom": "21.0.4"
+  }
 }
