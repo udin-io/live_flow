@@ -34,18 +34,30 @@ defmodule LiveFlow.Collaboration.User do
 
   Options:
     * `:name` - Display name. Defaults to "User N" where N is derived from the ID.
-    * `:color` - Hex color string. Defaults to a color deterministically chosen from the ID.
+    * `:color` - A hex (`#rgb`, `#rrggbb`, `#rrggbbaa`), `rgb()`/`hsl()` or
+      named CSS color. Any other value, or none, gives a color chosen from
+      the ID, because other users' pages draw it.
   """
   @spec new(String.t(), keyword()) :: t()
   def new(id, opts \\ []) do
     hash = :erlang.phash2(id)
+    default_color = Enum.at(@colors, rem(hash, length(@colors)))
 
     %__MODULE__{
       id: id,
       name: Keyword.get(opts, :name, "User #{rem(hash, 99) + 1}"),
-      color: Keyword.get(opts, :color, Enum.at(@colors, rem(hash, length(@colors))))
+      color: safe_color(Keyword.get(opts, :color), default_color)
     }
   end
+
+  @color_format ~r/\A(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(?:rgb|rgba|hsl|hsla)\([0-9.,%\s\/]{1,60}\))\z/
+
+  @doc false
+  def safe_color(color, default) when is_binary(color) do
+    if Regex.match?(@color_format, color), do: color, else: default
+  end
+
+  def safe_color(_color, default), do: default
 
   @doc """
   Returns the user data as a map suitable for Presence metadata.
