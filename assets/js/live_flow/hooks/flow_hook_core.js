@@ -109,11 +109,11 @@ export const LiveFlowHookCore = {
     this._remoteDragAnimating = false;
 
     this.handleEvent('lf:remote_drag', (data) => {
-      if (!data.changes) return;
+      if (!data.changes || !this.config.nodesDraggable) return;
       for (const change of data.changes) {
         if (!change.position) continue;
-        const el = this.nodeLayer?.querySelector(`[data-node-id="${change.id}"]`);
-        if (!el) continue;
+        const el = this.nodeLayer?.querySelector(`[data-node-id="${CSS.escape(String(change.id))}"]`);
+        if (!el || el.dataset.draggable === 'false') continue;
         let entry = this._remoteDragTargets.get(change.id);
         if (!entry) {
           entry = {

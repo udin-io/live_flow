@@ -123,6 +123,9 @@ defmodule LiveFlow.State do
   Removes a node by ID. Also removes all edges connected to this node.
   """
   @spec remove_node(t(), String.t()) :: t()
+  def remove_node(%__MODULE__{nodes: nodes} = state, id) when not is_map_key(nodes, id),
+    do: state
+
   def remove_node(%__MODULE__{nodes: nodes, edges: edges, selected_nodes: sel} = state, id) do
     # Remove edges connected to this node
     edges =
@@ -355,6 +358,44 @@ defmodule LiveFlow.State do
         selected_edges: MapSet.new()
     }
   end
+
+  @doc """
+  Applies an `lf:selection_change` event from the browser: the selection
+  becomes the given node and edge IDs.
+
+  Elements with `selectable: false` are left out, whatever the browser sends.
+  With the flow's `elements_selectable: false` option (a keyword list or a
+  map), the selection stays as it is. `select_nodes/2` and `select_edge/3`
+  stay unchecked, for selections the server makes itself.
+  """
+  @spec apply_selection_change(t(), map(), keyword() | map()) :: t()
+  def apply_selection_change(state, params, opts \\ [])
+
+  def apply_selection_change(%__MODULE__{} = state, %{} = params, opts) do
+    if not LiveFlow.Changes.Guard.enabled?(opts, :elements_selectable) do
+      state
+    else
+      node_ids = selectable_ids(state.nodes, Map.get(params, "nodes", []))
+      edge_ids = selectable_ids(state.edges, Map.get(params, "edges", []))
+
+      state
+      |> clear_selection()
+      |> select_nodes(node_ids)
+      |> then(&Enum.reduce(edge_ids, &1, fn id, acc -> select_edge(acc, id, multi: true) end))
+    end
+  end
+
+  defp selectable_ids(elements, ids) when is_list(ids) do
+    Enum.filter(ids, fn id ->
+      case Map.get(elements, id) do
+        %{selectable: false} -> false
+        nil -> false
+        _ -> true
+      end
+    end)
+  end
+
+  defp selectable_ids(_elements, _ids), do: []
 
   @doc """
   Selects all nodes and edges.
